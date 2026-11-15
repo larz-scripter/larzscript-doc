@@ -1,0 +1,115 @@
+# larzdoc - read a Larzscript package's public surface, compare it with what
+# its header documents, and generate a reference.
+#
+#   larzscript bin/larzdoc.lz check <path>...            report drift
+#   larzscript bin/larzdoc.lz gen   <path>... --out F    write a markdown reference
+#   larzscript bin/larzdoc.lz --summary check <path>...  counts only
+#
+# A function documented but absent is an error: the header is lying. A
+# public function the header never mentions is a warning: the header is
+# incomplete, which is the ordinary state of things.
+
+import "../lib/api.lz" as api
+import "../lib/render.lz" as render
+
+fn lz_files(path) {
+  if path.ends_with(".lz") { return [path] }
+  let out = []
+  let pending = [path]
+  while len(pending) > 0 {
+    let d = pending.pop()
+    for name in listdir(d) {
+      let p = d + "/" + name
+      if name.ends_with(".lz") {
+        out.push(p)
+      } else {
+        if not name.contains(".") { pending.push(p) }
+      }
+    }
+  }
+  out.sort()
+  return out
+}
+
+fn opt(name, fallback) {
+  let i = 0
+  while i < len(args) {
+    if args[i] == name and i + 1 < len(args) { return args[i + 1] }
+    i = i + 1
+  }
+  return fallback
+}
+
+fn collect(paths, skip_vendor) {
+  let out = []
+  for p in paths {
+    for f in lz_files(p) {
+      if skip_vendor and f.contains("/vendor/") { continue }
+      out.push(api.read(f))
+    }
+  }
+  return out
+}
+
+fn main() {
+  if len(args) == 0 {
+    print("usage: larzdoc check <path>... | gen <path>... --out FILE")
+    return 2
+  }
+  let cmd = args[0]
+  let summary = false
+  let paths = []
+  let i = 1
+  while i < len(args) {
+    let a = args[i]
+    if a == "--summary" { summary = true  i = i + 1  continue }
+    if a == "--out" { i = i + 2  continue }
+    if a.starts_with("--") { i = i + 1  continue }
+    paths.push(a)
+    i = i + 1
+  }
+  if len(paths) == 0 { print("no paths given")  return 2 }
+
+  let pkgs = collect(paths, true)
+
+  if cmd == "gen" {
+    let out_path = opt("--out", "REFERENCE.md")
+    write_file(out_path, render.reference(pkgs))
+    let fns = 0
+    for p in pkgs { fns = fns + len(p["exports"]) }
+    print("wrote " + out_path + ": " + str(len(pkgs)) + " package(s), " + str(fns) + " public function(s)")
+    return 0
+  }
+
+  if cmd != "check" {
+    print("unknown command: " + cmd)
+    return 2
+  }
+
+  let documented_pkgs = 0
+  let in_sync = 0
+  let undoc = 0
+  let phantom = 0
+  for p in pkgs {
+    let d = api.drift(p)
+    if len(p["documented"].keys()) > 0 { documented_pkgs = documented_pkgs + 1 }
+    if len(d["undocumented"]) == 0 and len(d["phantom"]) == 0 and len(p["documented"].keys()) > 0 {
+      in_sync = in_sync + 1
+    }
+    undoc = undoc + len(d["undocumented"])
+    phantom = phantom + len(d["phantom"])
+    if not summary {
+      for x in d["phantom"] {
+        print(p["path"] + "  error    documents " + p["alias"] + "." + x + "() which does not exist")
+      }
+      for x in d["undocumented"] {
+        print(p["path"] + "  warning  " + x + "() is public and undocumented")
+      }
+    }
+  }
+  print("scanned " + str(len(pkgs)) + " package(s); " + str(documented_pkgs) + " document an API; " + str(in_sync) + " fully in sync")
+  print(str(phantom) + " documented-but-missing, " + str(undoc) + " undocumented")
+  return phantom > 0 ? 1 : 0
+}
+
+exit(main())

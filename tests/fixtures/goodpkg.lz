@@ -1,0 +1,10 @@
+# goodpkg - a package whose header documents its whole public surface.
+#
+#   import "goodpkg" as good
+#   good.add(1, 2)
+#   good.scale(xs, 2)
+
+fn _helper(x) { return x }
+
+fn add(a, b) { return a + b }
+fn scale(xs, k) { return [x * k for x in xs] }

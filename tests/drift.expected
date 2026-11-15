@@ -1,0 +1,5 @@
+tests/fixtures/driftpkg.lz  warning  gamma() is public and undocumented
+tests/fixtures/liarpkg.lz  error    documents liar.vanished() which does not exist
+scanned 4 package(s); 4 document an API; 2 fully in sync
+1 documented-but-missing, 1 undocumented
+exit=1

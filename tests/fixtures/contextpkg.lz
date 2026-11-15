@@ -1,0 +1,10 @@
+# contextpkg - a header that imports another package for context, exactly
+# like genetic.lz does with random. Those calls belong to the other
+# package and must not be read as this one's documentation.
+#
+#   import "contextpkg" as ctx
+#   import "random" as rng
+#   rng.seed(1)
+#   ctx.pick(rng.randint(0, 9))
+
+fn pick(n) { return n }

@@ -1,0 +1,20 @@
+wrote tests/data/ref.md: 4 package(s), 7 public function(s)
+--- index
+## Index
+
+--- the drifting package
+## driftpkg
+
+documents two of its three public functions.
+
+```
+import "driftpkg" as drift
+```
+
+| function | documented |
+|---|---|
+| `alpha()` | yes |
+| `beta()` | yes |
+| `gamma(n=nil)` | — |
+
+<details><summary>header</summary>

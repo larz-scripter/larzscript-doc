@@ -1,0 +1,9 @@
+# driftpkg - documents two of its three public functions.
+#
+#   import "driftpkg" as drift
+#   drift.alpha()
+#   drift.beta()
+
+fn alpha() { return 1 }
+fn beta() { return 2 }
+fn gamma(n = nil) { return n }

@@ -1,0 +1,7 @@
+# liarpkg - documents a function it does not have.
+#
+#   import "liarpkg" as liar
+#   liar.exists()
+#   liar.vanished()
+
+fn exists() { return true }

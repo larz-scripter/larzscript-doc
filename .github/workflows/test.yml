@@ -1,0 +1,24 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install larzscript
+        run: curl -fsSL https://raw.githubusercontent.com/larz-scripter/larzscript/main/install.sh | sh
+      - name: syntax check
+        # No packages to install and none vendored: larzdoc imports nothing
+        # outside its own lib/. Tests and demo use fixtures committed here,
+        # so a runner with no package cache is the normal case.
+        run: |
+          larzscript --check lib/lex.lz
+          larzscript --check lib/api.lz
+          larzscript --check lib/render.lz
+          larzscript --check bin/larzdoc.lz
+      - name: run tests
+        run: sh tests/run_tests.sh
+      - name: run demo
+        run: sh examples/demo.sh
+      - name: larzdoc on its own source
+        run: larzscript bin/larzdoc.lz check --summary lib

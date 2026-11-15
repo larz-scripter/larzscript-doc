@@ -1,0 +1,116 @@
+# lex - split Larzscript source into tokens.
+#
+# ORIGIN: this file is the lexer from larz-scripter/larzscript-fmt, copied
+# here unchanged (via larzscript-lint). It is duplicated rather than shared because there is no
+# mechanism to depend on another flagship repo - larzpkg's registry is for
+# packages, and cross-vendoring between flagships is not established
+# practice. The duplication is deliberate and is recorded here so that a
+# fix in one is known to need applying to the other.
+#
+#   import "lib/lex.lz" as lex
+#   lex.tokens(src)          # -> [{kind, text}, ...]
+#   lex.significant(toks)    # -> the same list minus whitespace and newlines
+#   lex.render(toks)         # -> the source again, byte for byte
+#
+# Kinds: "ws" "nl" "comment" "string" "number" "ident" "op".
+#
+# This is a lexer, not a parser. It matters here for one specific reason:
+# a `fn` written inside a comment or a string is not a definition, and a
+# grep cannot tell. Package headers are full of usage examples, so that
+# distinction is the whole job.
+#
+# It has to be exactly right about three things, because every safety
+# property downstream rests on it:
+#   - a `#` inside a string is not a comment
+#   - a `"` inside a comment does not open a string
+#   - `\"` inside a string does not close it
+# Money literals ($10.00) lex as one number token, not as `$` then `10.00`.
+
+fn _is_digit(c) { return c >= "0" and c <= "9" }
+fn _is_alpha(c) { return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "_" }
+fn _is_alnum(c) { return _is_alpha(c) or _is_digit(c) }
+fn _is_space(c) { return c == " " or c == "\t" or c == "\r" }
+
+fn tokens(src) {
+  let out = []
+  let i = 0
+  let n = len(src)
+  while i < n {
+    let c = src[i]
+
+    if c == "\n" {
+      out.push({"kind": "nl", "text": "\n"})
+      i = i + 1
+      continue
+    }
+
+    if _is_space(c) {
+      let start = i
+      while i < n and _is_space(src[i]) { i = i + 1 }
+      out.push({"kind": "ws", "text": src[start:i]})
+      continue
+    }
+
+    if c == "#" {
+      let start = i
+      while i < n and src[i] != "\n" { i = i + 1 }
+      out.push({"kind": "comment", "text": src[start:i]})
+      continue
+    }
+
+    if c == "\"" {
+      let start = i
+      i = i + 1
+      while i < n {
+        if src[i] == "\\" and i + 1 < n {
+          i = i + 2
+          continue
+        }
+        if src[i] == "\"" {
+          i = i + 1
+          break
+        }
+        i = i + 1
+      }
+      out.push({"kind": "string", "text": src[start:i]})
+      continue
+    }
+
+    if _is_digit(c) or (c == "$" and i + 1 < n and _is_digit(src[i + 1])) {
+      let start = i
+      if c == "$" { i = i + 1 }
+      while i < n and (_is_digit(src[i]) or src[i] == ".") { i = i + 1 }
+      out.push({"kind": "number", "text": src[start:i]})
+      continue
+    }
+
+    if _is_alpha(c) {
+      let start = i
+      while i < n and _is_alnum(src[i]) { i = i + 1 }
+      out.push({"kind": "ident", "text": src[start:i]})
+      continue
+    }
+
+    out.push({"kind": "op", "text": c})
+    i = i + 1
+  }
+  return out
+}
+
+# Everything that carries meaning. Whitespace and line breaks are the only
+# things a formatter is allowed to touch, so these are what must survive it.
+fn significant(toks) {
+  let out = []
+  for t in toks {
+    if t["kind"] == "ws" { continue }
+    if t["kind"] == "nl" { continue }
+    out.push(t)
+  }
+  return out
+}
+
+fn render(toks) {
+  let s = ""
+  for t in toks { s = s + t["text"] }
+  return s
+}
